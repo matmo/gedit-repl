@@ -319,6 +319,7 @@ class TerminalPlugin(GObject.Object, Gedit.WindowActivatable):
         action = Gio.SimpleAction(name="sendcmd")
         action.connect('activate', self.on_send_selection)
         self.window.add_action(action)
+        self.window.connect('key-press-event', self.on_key_press)
 
     def do_deactivate(self):
         bottom = self.window.get_bottom_panel()
@@ -346,7 +347,7 @@ class TerminalPlugin(GObject.Object, Gedit.WindowActivatable):
         item.set_sensitive(path is not None)
         menu.prepend(item)
 
-    def on_send_selection(self, action, parameter, user_data=None):
+    def on_send_selection(self, action=None, parameter=None, user_data=None):
         doc = self.window.get_active_document()
         if doc.get_has_selection():
             start, end = doc.get_selection_bounds()
@@ -364,6 +365,13 @@ class TerminalPlugin(GObject.Object, Gedit.WindowActivatable):
                 code = start.get_text(end)
                 doc.goto_line(start.get_line()+1)
         self._panel.send_command(code)
+        
+    def on_key_press(self, input_view, event):
+         if event.state == Gdk.ModifierType.CONTROL_MASK and event.keyval == Gdk.KEY_Return:
+            self.on_send_selection()
+            return True
+         else:
+            return False
 
 class SynctexAppActivatable(GObject.Object, Gedit.AppActivatable):
 
@@ -373,7 +381,9 @@ class SynctexAppActivatable(GObject.Object, Gedit.AppActivatable):
         GObject.Object.__init__(self)
 
     def do_activate(self):
-        self.app.add_accelerator("<Alt>W", "win.sendcmd", None)
+        # This is just to display the accel in the menu
+        # <Control>Return connected to keypress event
+        self.app.add_accelerator("<Control>Return", "win.sendcmd", None)
 
         self.menu_ext = self.extend_menu("tools-section")
         item = Gio.MenuItem.new(_("Send to Terminal"), "win.sendcmd")
