@@ -296,6 +296,9 @@ class GeditTerminalPanel(Gtk.Box):
         path = path.replace('\\', '\\\\').replace('"', '\\"')
         self._vte.feed_child('cd "%s"\n' % path, -1)
         self._vte.grab_focus()
+        
+    def send_command(self, cmd):
+        self._vte.feed_child('%s\n' % cmd, -1)
 
 class TerminalPlugin(GObject.Object, Gedit.WindowActivatable):
     __gtype_name__ = "TerminalPlugin"
@@ -313,9 +316,15 @@ class TerminalPlugin(GObject.Object, Gedit.WindowActivatable):
         bottom = self.window.get_bottom_panel()
         bottom.add_titled(self._panel, "GeditTerminalPanel", _("Terminal"))
 
+        action = Gio.SimpleAction(name="sendcmd")
+        action.connect('activate', self.on_send_selection)
+        self.window.add_action(action)
+
     def do_deactivate(self):
         bottom = self.window.get_bottom_panel()
         bottom.remove(self._panel)
+
+        self.remove_action("sendcmd")
 
     def do_update_state(self):
         pass
@@ -336,6 +345,43 @@ class TerminalPlugin(GObject.Object, Gedit.WindowActivatable):
         item.connect("activate", lambda menu_item: panel.change_directory(path))
         item.set_sensitive(path is not None)
         menu.prepend(item)
+
+    def on_send_selection(self, action, parameter, user_data=None):
+        doc = self.window.get_active_document()
+        if doc.get_has_selection():
+            start, end = doc.get_selection_bounds()
+            code = start.get_text(end)
+        else:
+            cursor = doc.get_insert()
+            start = doc.get_iter_at_mark(cursor)
+            start.set_line_offset(0)
+            if start.ends_line():
+                code = ""
+                doc.goto_line(start.get_line()+1)
+            else:
+                end = start.copy()
+                end.forward_to_line_end()
+                code = start.get_text(end)
+                doc.goto_line(start.get_line()+1)
+        self._panel.send_command(code)
+
+class SynctexAppActivatable(GObject.Object, Gedit.AppActivatable):
+
+    app = GObject.property(type=Gedit.App)
+
+    def __init__(self):
+        GObject.Object.__init__(self)
+
+    def do_activate(self):
+        self.app.add_accelerator("<Alt>W", "win.sendcmd", None)
+
+        self.menu_ext = self.extend_menu("tools-section")
+        item = Gio.MenuItem.new(_("Send to Terminal"), "win.sendcmd")
+        self.menu_ext.append_menu_item(item)
+
+    def do_deactivate(self):
+        self.app.remove_accelerator("win.sendcmd", None)
+        self.menu_ext = None
 
 # Let's conform to PEP8
 # ex:ts=4:et:
