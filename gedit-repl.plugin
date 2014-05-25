@@ -1,0 +1,9 @@
+[Plugin]
+Loader=python3
+Module=gedit-repl
+IAge=3
+Name=REPL
+Description=Provide REPL functionality for Gedit
+Authors=Mathias Moser <matmoser@wu.ac.at>
+Copyright=Copyright © 2014 Mathias Moser <matmoser@wu.ac.at>
+Website=http://www.gedit.org
